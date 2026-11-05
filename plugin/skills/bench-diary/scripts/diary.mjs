@@ -1,18 +1,18 @@
 #!/usr/bin/env node
-// Lab Scribe helper: appends research-log entries to the Markdown docs a project lists in
-// lab-scribe.json, and undoes them.
+// Bench Diary helper: appends research-log entries to the Markdown docs a project lists in
+// bench-diary.json, and undoes them.
 //
-//   node scribe.mjs init   --doc <path> [--topics "a, b"] [--description "..."] [--project <dir>]
-//   node scribe.mjs enable [--project <dir>]     (confirm a lab-scribe.json this user didn't create)
-//   node scribe.mjs docs   [--project <dir>]
-//   node scribe.mjs route  [--kind <kind>] [--project <dir>]           (the item on stdin)
-//   node scribe.mjs add    --doc <path> --kind <kind> [--project <dir>] (entry on stdin; a line
+//   node diary.mjs init   --doc <path> [--topics "a, b"] [--description "..."] [--project <dir>]
+//   node diary.mjs enable [--project <dir>]     (confirm a bench-diary.json this user didn't create)
+//   node diary.mjs docs   [--project <dir>]
+//   node diary.mjs route  [--kind <kind>] [--project <dir>]           (the item on stdin)
+//   node diary.mjs add    --doc <path> --kind <kind> [--project <dir>] (entry on stdin; a line
 //                          starting "Connection:" becomes the connection note)
-//   node scribe.mjs undo   [--id <log id>] [--project <dir>]
-//   node scribe.mjs recent [--n 10] [--project <dir>]
+//   node diary.mjs undo   [--id <log id>] [--project <dir>]
+//   node diary.mjs recent [--n 10] [--project <dir>]
 //
-// It writes only: lab-scribe.json; the docs listed in it (inside the project, Markdown only); and
-// the folder .lab-scribe/ (enabled, journal.jsonl, lock, .gitignore). The docs and lab-scribe.json
+// It writes only: bench-diary.json; the docs listed in it (inside the project, Markdown only); and
+// the folder .bench-diary/ (enabled, journal.jsonl, lock, .gitignore). The docs and bench-diary.json
 // are saved through a temporary file and a rename. It reads nothing else and makes no network
 // requests. Output is one line of JSON.
 import fs from 'node:fs';
@@ -23,8 +23,8 @@ import { fileURLToPath } from 'node:url';
 export const KINDS = ['note', 'decision', 'anecdote', 'idea', 'related'];
 const LABEL = { note: 'Note', decision: 'Decision', anecdote: 'Anecdote', idea: 'Experiment idea', related: 'Loosely related' };
 const LOG_HEADING = '## Research log';
-const CONFIG = 'lab-scribe.json';
-const STATE = '.lab-scribe';
+const CONFIG = 'bench-diary.json';
+const STATE = '.bench-diary';
 const COMMANDS = ['init', 'enable', 'docs', 'route', 'add', 'undo', 'recent'];
 
 export function parseArgs(argv) {
@@ -133,16 +133,16 @@ export function resolveDoc(project, rel) {
 
 const sleep = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
-// The .lab-scribe folder, refusing links so nothing in it can be redirected outside the project.
+// The .bench-diary folder, refusing links so nothing in it can be redirected outside the project.
 function stateDir(project, create) {
   const dir = path.join(project, STATE);
   let st = null;
   try { st = fs.lstatSync(dir); } catch (e) { if (e.code !== 'ENOENT') throw e; }
-  if (st && (st.isSymbolicLink() || !st.isDirectory())) throw new Error(`${STATE} is a link or not a folder; Lab Scribe won't use it`);
+  if (st && (st.isSymbolicLink() || !st.isDirectory())) throw new Error(`${STATE} is a link or not a folder; Bench Diary won't use it`);
   if (!st) { if (!create) return null; fs.mkdirSync(dir); }
-  if (!inside(realNative(project), realNative(dir))) throw new Error(`${STATE} leads outside the project; Lab Scribe won't use it`);
+  if (!inside(realNative(project), realNative(dir))) throw new Error(`${STATE} leads outside the project; Bench Diary won't use it`);
   for (const f of ['.gitignore', 'journal.jsonl', 'lock', 'enabled']) {
-    try { if (fs.lstatSync(path.join(dir, f)).isSymbolicLink()) throw new Error(`${STATE}/${f} is a link; Lab Scribe won't use it`); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+    try { if (fs.lstatSync(path.join(dir, f)).isSymbolicLink()) throw new Error(`${STATE}/${f} is a link; Bench Diary won't use it`); } catch (e) { if (e.code !== 'ENOENT') throw e; }
   }
   // The journal holds log ids; keep the folder out of git.
   const ignore = path.join(dir, '.gitignore');
@@ -167,7 +167,7 @@ export function withLock(project, fn) {
           continue;
         }
       } catch { /* someone else moved it */ }
-      if (Date.now() > until) throw new Error(e.code === 'EEXIST' ? 'another Lab Scribe run is still writing (its lock is .lab-scribe/lock); try again in a moment' : `can't create .lab-scribe/lock (${e.code}); check the folder isn't read-only`);
+      if (Date.now() > until) throw new Error(e.code === 'EEXIST' ? 'another Bench Diary run is still writing (its lock is .bench-diary/lock); try again in a moment' : `can't create .bench-diary/lock (${e.code}); check the folder isn't read-only`);
       sleep(50);
     }
   }
@@ -184,7 +184,7 @@ const decode = (buf, what) => {
 function writeAtomic(file, text) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   let mode = null;
-  try { const st = fs.lstatSync(file); if (st.isSymbolicLink()) throw new Error(`${path.basename(file)} is a link; Lab Scribe won't write through it`); mode = st.mode & 0o7777; } catch (e) { if (e.code !== 'ENOENT') throw e; }
+  try { const st = fs.lstatSync(file); if (st.isSymbolicLink()) throw new Error(`${path.basename(file)} is a link; Bench Diary won't write through it`); mode = st.mode & 0o7777; } catch (e) { if (e.code !== 'ENOENT') throw e; }
   const tmp = `${file}.tmp-${process.pid}-${crypto.randomBytes(3).toString('hex')}`;
   try {
     fs.writeFileSync(tmp, text, { flag: 'wx' });
@@ -208,7 +208,7 @@ export function loadConfig(project) {
   let raw;
   try {
     const st = fs.lstatSync(file);
-    if (st.isSymbolicLink() || !st.isFile()) throw new Error(`${CONFIG} is a link or not a file; Lab Scribe won't use it`);
+    if (st.isSymbolicLink() || !st.isFile()) throw new Error(`${CONFIG} is a link or not a file; Bench Diary won't use it`);
     raw = decode(fs.readFileSync(file), CONFIG).replace(new RegExp('^' + BOM), '');
   } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
   let cfg;
@@ -321,12 +321,12 @@ export function removeEntry(docText, id) {
   return lines.join(eol);
 }
 
-// Reads a research doc, refusing files Lab Scribe would damage or shouldn't touch.
+// Reads a research doc, refusing files Bench Diary would damage or shouldn't touch.
 export function readDoc(abs, rel) {
   let st;
   try { st = fs.lstatSync(abs); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
-  if (st.isSymbolicLink() || !st.isFile()) throw new Error(`${rel} is a link or not an ordinary file; Lab Scribe won't write to it`);
-  if (st.nlink > 1) throw new Error(`${rel} has other hard links; Lab Scribe won't write to it`);
+  if (st.isSymbolicLink() || !st.isFile()) throw new Error(`${rel} is a link or not an ordinary file; Bench Diary won't write to it`);
+  if (st.nlink > 1) throw new Error(`${rel} has other hard links; Bench Diary won't write to it`);
   const buf = fs.readFileSync(abs);
   if ((buf[0] === 0xff && buf[1] === 0xfe) || (buf[0] === 0xfe && buf[1] === 0xff) || buf.includes(0)) throw new Error(`${rel} isn't UTF-8 text (it looks like UTF-16); save it as UTF-8 first`);
   return decode(buf, rel);
@@ -352,12 +352,12 @@ const isEnabled = (project, cfg) => {
 const markEnabled = (project, cfg, now) => fs.writeFileSync(enabledFile(project), `${consentKey(project, cfg)}\n${now.toISOString()}\n`);
 
 // The config as written, for init to change one entry and keep everything else (other keys, other
-// entries, even ones Lab Scribe refuses to use).
+// entries, even ones Bench Diary refuses to use).
 function rawConfig(project) {
   const file = path.join(project, CONFIG);
   try {
     const st = fs.lstatSync(file);
-    if (st.isSymbolicLink() || !st.isFile()) throw new Error(`${CONFIG} is a link or not a file; Lab Scribe won't use it`);
+    if (st.isSymbolicLink() || !st.isFile()) throw new Error(`${CONFIG} is a link or not a file; Bench Diary won't use it`);
     const v = JSON.parse(decode(fs.readFileSync(file), CONFIG).replace(new RegExp('^' + BOM), ''));
     if (!v || typeof v !== 'object' || Array.isArray(v) || !Array.isArray(v.docs)) throw new Error(`${CONFIG} needs a "docs" list`);
     return v;
@@ -422,7 +422,7 @@ export function runCommand(o, input, now = new Date()) {
       return withLock(project, () => {
         const cfg = loadConfig(project);
         if (!cfg) throw new Error(`research logging is off here: no ${CONFIG} (run init first)`);
-        // A lab-scribe.json that came with the project (a clone, a copy) needs this user's OK first.
+        // A bench-diary.json that came with the project (a clone, a copy) needs this user's OK first.
         if (!isEnabled(project, cfg)) throw new Error(`logging isn't confirmed for you in this project yet: ${CONFIG} lists ${cfg.docs.map(d => d.path).join(', ') || 'no usable docs'}; ask the user, then run enable`);
         const { rel, abs } = resolveDoc(project, o.doc || cfg.defaultDoc || '');
         if (!cfg.docs.some(d => d.path === rel)) throw new Error(`${rel} isn't one of this project's research docs in ${CONFIG}; add it with init first`);

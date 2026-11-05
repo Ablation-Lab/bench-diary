@@ -1,6 +1,6 @@
 # Review council results
 
-Made-up sample project for trying Lab Scribe. Everything here is invented.
+Made-up sample project for trying Bench Diary. Everything here is invented.
 
 ## Runs so far
 

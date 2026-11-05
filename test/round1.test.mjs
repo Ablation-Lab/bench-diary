@@ -1,4 +1,4 @@
-// Regression tests for the Lab Scribe council's round-1 fix list (judge.md).
+// Regression tests for the Bench Diary council's round-1 fix list (judge.md).
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -6,33 +6,33 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync, execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { runCommand, parseArgs, clean, insertEntry, removeEntry, resolveDoc } from '../plugin/skills/lab-scribe/scripts/scribe.mjs';
+import { runCommand, parseArgs, clean, insertEntry, removeEntry, resolveDoc } from '../plugin/skills/bench-diary/scripts/diary.mjs';
 
-const SCRIPT = fileURLToPath(new URL('../plugin/skills/lab-scribe/scripts/scribe.mjs', import.meta.url));
+const SCRIPT = fileURLToPath(new URL('../plugin/skills/bench-diary/scripts/diary.mjs', import.meta.url));
 const made = [];
-const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'lab-scribe-r1-')); made.push(d); return d; };
+const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-diary-r1-')); made.push(d); return d; };
 after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 const run = (p, argv, input = '') => runCommand({ ...parseArgs(argv), project: p }, input);
 const read = (p, f) => fs.readFileSync(path.join(p, f), 'utf8');
 const setup = () => { const p = tmp(); run(p, ['init', '--doc', 'notes/log.md', '--topics', 'results']); return p; };
 
-test('consent: a lab-scribe.json that came with the project needs enable; init enables for its author', () => {
+test('consent: a bench-diary.json that came with the project needs enable; init enables for its author', () => {
   const p = tmp();
   fs.mkdirSync(path.join(p, 'notes'));
-  fs.writeFileSync(path.join(p, 'lab-scribe.json'), JSON.stringify({ docs: [{ path: 'notes/log.md' }] }));
+  fs.writeFileSync(path.join(p, 'bench-diary.json'), JSON.stringify({ docs: [{ path: 'notes/log.md' }] }));
   assert.equal(run(p, ['docs']).setUpHere, false);
   assert.throws(() => run(p, ['add', '--doc', 'notes/log.md', '--kind', 'note'], 'x'), /confirmed for you.*notes\/log\.md.*enable/);
   assert.ok(!fs.existsSync(path.join(p, 'notes/log.md')), 'nothing written');
   run(p, ['enable']);
   assert.equal(run(p, ['add', '--doc', 'notes/log.md', '--kind', 'note'], 'x').logged, true);
-  assert.equal(read(p, '.lab-scribe/.gitignore'), '*\n', 'the marker stays out of git');
+  assert.equal(read(p, '.bench-diary/.gitignore'), '*\n', 'the marker stays out of git');
   assert.equal(run(setup(), ['docs']).setUpHere, true);
 });
 
 test('planted paths: shell characters, short names and invalid entries are refused and never printed raw', () => {
   const p = tmp();
   const tagged = 'notes/a' + String.fromCodePoint(0xe0041) + '.md';
-  fs.writeFileSync(path.join(p, 'lab-scribe.json'), JSON.stringify({ docs: [
+  fs.writeFileSync(path.join(p, 'bench-diary.json'), JSON.stringify({ docs: [
     { path: 'notes/$(echo ran).md' }, { path: "notes/a'b.md" }, { path: 'notes/x;y.md' }, { path: 'CLAUDE~1/r.md' }, null, 7, { path: tagged },
     { path: 'notes/ok.md', topics: ['results', 'x' + String.fromCodePoint(0x202e)], description: 'run ' + String.fromCodePoint(0xe0049) + 'notes' },
   ], defaultDoc: 'notes/$(echo ran).md' }));
@@ -63,16 +63,16 @@ test('the real path is checked: a short name cannot reach .claude or CLAUDE.loca
 test('the journal keeps no entry text, and undo strips text from older journals', () => {
   const p = setup();
   const a = run(p, ['add', '--doc', 'notes/log.md', '--kind', 'note'], 'my password is hunter2 (oops)');
-  assert.ok(!read(p, '.lab-scribe/journal.jsonl').includes('hunter2'));
+  assert.ok(!read(p, '.bench-diary/journal.jsonl').includes('hunter2'));
   assert.match(run(p, ['recent']).entries[0].text, /hunter2/, 'recent reads the text from the doc');
   run(p, ['undo']);
-  assert.ok(!read(p, '.lab-scribe/journal.jsonl').includes('hunter2'));
+  assert.ok(!read(p, '.bench-diary/journal.jsonl').includes('hunter2'));
   assert.ok(!read(p, 'notes/log.md').includes('hunter2'));
   // An older journal with a copy of the text.
-  fs.appendFileSync(path.join(p, '.lab-scribe/journal.jsonl'), JSON.stringify({ id: 'abcdef', doc: 'notes/log.md', kind: 'note', time: new Date().toISOString(), lines: ['- **x · Note** · secret old text (log id: abcdef)'] }) + '\n');
+  fs.appendFileSync(path.join(p, '.bench-diary/journal.jsonl'), JSON.stringify({ id: 'abcdef', doc: 'notes/log.md', kind: 'note', time: new Date().toISOString(), lines: ['- **x · Note** · secret old text (log id: abcdef)'] }) + '\n');
   run(p, ['add', '--doc', 'notes/log.md', '--kind', 'note'], 'new');
   run(p, ['undo']);
-  assert.ok(!read(p, '.lab-scribe/journal.jsonl').includes('secret old text'));
+  assert.ok(!read(p, '.bench-diary/journal.jsonl').includes('secret old text'));
   assert.ok(a.id);
 });
 
@@ -85,7 +85,7 @@ test('non-UTF-8 docs are refused unchanged; a UTF-8 BOM in a doc is kept; a BOM 
   fs.writeFileSync(path.join(p, 'notes/log.md'), Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('# Log\n\n## Research log\n')]));
   run(p, ['add', '--doc', 'notes/log.md', '--kind', 'note'], 'x');
   assert.deepEqual([...fs.readFileSync(path.join(p, 'notes/log.md')).subarray(0, 3)], [0xef, 0xbb, 0xbf]);
-  fs.writeFileSync(path.join(p, 'lab-scribe.json'), String.fromCharCode(0xfeff) + read(p, 'lab-scribe.json'));
+  fs.writeFileSync(path.join(p, 'bench-diary.json'), String.fromCharCode(0xfeff) + read(p, 'bench-diary.json'));
   assert.equal(run(p, ['docs']).active, true);
 });
 
@@ -120,19 +120,19 @@ test('parallel inits keep every doc; parallel adds lose nothing', async () => {
   });
   const inits = await Promise.all(['a', 'b', 'c', 'd'].map(x => one(['init', '--doc', `notes/${x}.md`])));
   assert.ok(inits.every(r => r.code === 0), inits.map(r => r.out).join('\n'));
-  assert.deepEqual(JSON.parse(read(p, 'lab-scribe.json')).docs.map(d => d.path).sort(), ['notes/a.md', 'notes/b.md', 'notes/c.md', 'notes/d.md']);
+  assert.deepEqual(JSON.parse(read(p, 'bench-diary.json')).docs.map(d => d.path).sort(), ['notes/a.md', 'notes/b.md', 'notes/c.md', 'notes/d.md']);
   const adds = await Promise.all(Array.from({ length: 20 }, (_, i) => one(['add', '--doc', 'notes/a.md', '--kind', 'note'], `entry ${i}`)));
   assert.ok(adds.every(r => r.code === 0), adds.map(r => r.out).join('\n'));
   for (let i = 0; i < 20; i++) assert.ok(read(p, 'notes/a.md').includes(`entry ${i} (`), `entry ${i}`);
 });
 
-test('no .lab-scribe folder without a config; links for .lab-scribe are refused', () => {
+test('no .bench-diary folder without a config; links for .bench-diary are refused', () => {
   const p = tmp();
   assert.throws(() => run(p, ['undo']), /nothing to undo/);
   assert.deepEqual(run(p, ['recent']).entries, []);
-  assert.ok(!fs.existsSync(path.join(p, '.lab-scribe')));
+  assert.ok(!fs.existsSync(path.join(p, '.bench-diary')));
   const q = tmp(), outside = tmp();
-  fs.symlinkSync(outside, path.join(q, '.lab-scribe'), 'junction');
+  fs.symlinkSync(outside, path.join(q, '.bench-diary'), 'junction');
   assert.throws(() => run(q, ['init', '--doc', 'notes/x.md']), /link or not a folder/);
   assert.deepEqual(fs.readdirSync(outside), []);
 });
@@ -150,7 +150,7 @@ test('stdin is decoded once, and the helper runs through a linked folder', async
   assert.ok(read(p, 'notes/log.md').includes('Café ☕ result'));
   const d = tmp();
   fs.symlinkSync(path.dirname(SCRIPT), path.join(d, 'linked'), 'junction');
-  const viaLink = spawnSync(process.execPath, [path.join(d, 'linked', 'scribe.mjs'), 'docs', '--project', p], { encoding: 'utf8' });
+  const viaLink = spawnSync(process.execPath, [path.join(d, 'linked', 'diary.mjs'), 'docs', '--project', p], { encoding: 'utf8' });
   assert.equal(JSON.parse(viaLink.stdout).active, true);
 });
 

@@ -5,11 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { runCommand, parseArgs, clean, splitEntry, insertEntry, resolveDoc, stamp } from '../plugin/skills/lab-scribe/scripts/scribe.mjs';
+import { runCommand, parseArgs, clean, splitEntry, insertEntry, resolveDoc, stamp } from '../plugin/skills/bench-diary/scripts/diary.mjs';
 
-const SCRIPT = fileURLToPath(new URL('../plugin/skills/lab-scribe/scripts/scribe.mjs', import.meta.url));
+const SCRIPT = fileURLToPath(new URL('../plugin/skills/bench-diary/scripts/diary.mjs', import.meta.url));
 const made = [];
-const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'lab-scribe-')); made.push(d); return d; };
+const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-diary-')); made.push(d); return d; };
 after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 const run = (project, argv, input = '', now) => runCommand({ ...parseArgs(argv), project }, input, now);
 const setup = () => {
@@ -22,9 +22,9 @@ const read = (p, f) => fs.readFileSync(path.join(p, f), 'utf8');
 
 test('init makes the config and a doc with a Research log section', () => {
   const p = setup();
-  assert.deepEqual(JSON.parse(read(p, 'lab-scribe.json')).docs.map(d => d.path), ['notes/councils.md', 'notes/methods.md']);
+  assert.deepEqual(JSON.parse(read(p, 'bench-diary.json')).docs.map(d => d.path), ['notes/councils.md', 'notes/methods.md']);
   assert.match(read(p, 'notes/councils.md'), /^# councils\n\n## Research log\n/);
-  assert.equal(read(p, '.lab-scribe/.gitignore'), '*\n');
+  assert.equal(read(p, '.bench-diary/.gitignore'), '*\n');
 });
 
 test('route picks the doc whose topics match', () => {
@@ -81,7 +81,7 @@ test('only listed docs inside the project, never instruction files', () => {
 
 test('a planted config cannot point add outside the project', () => {
   const p = tmp();
-  fs.writeFileSync(path.join(p, 'lab-scribe.json'), JSON.stringify({ docs: [{ path: '../evil.md' }, { path: 'CLAUDE.md' }], defaultDoc: 'CLAUDE.md' }));
+  fs.writeFileSync(path.join(p, 'bench-diary.json'), JSON.stringify({ docs: [{ path: '../evil.md' }, { path: 'CLAUDE.md' }], defaultDoc: 'CLAUDE.md' }));
   assert.throws(() => run(p, ['add', '--kind', 'note'], 'x'), /confirmed|no usable docs/);
   const d = run(p, ['docs']);
   assert.deepEqual(d.docs, []);
@@ -157,13 +157,13 @@ test('parallel runs from the CLI lose no entries and leave no temp files', async
   const doc = read(p, 'notes/councils.md');
   for (let i = 0; i < 12; i++) assert.ok(doc.includes(`Parallel entry ${i}.`), `entry ${i}`);
   assert.deepEqual(fs.readdirSync(path.join(p, 'notes')).filter(f => f.includes('.tmp-')), []);
-  assert.ok(!fs.existsSync(path.join(p, '.lab-scribe/lock')));
+  assert.ok(!fs.existsSync(path.join(p, '.bench-diary/lock')));
 });
 
 test('the README sample steps work on samples/', () => {
   const p = tmp();
   fs.cpSync(new URL('../samples/', import.meta.url), p, { recursive: true });
-  // The sample comes with a lab-scribe.json, so logging waits for the user's OK.
+  // The sample comes with a bench-diary.json, so logging waits for the user's OK.
   assert.equal(run(p, ['docs']).setUpHere, false);
   assert.throws(() => run(p, ['add', '--doc', 'notes/results.md', '--kind', 'note'], 'x'), /confirmed/);
   run(p, ['enable']);

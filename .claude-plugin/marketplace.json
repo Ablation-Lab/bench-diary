@@ -1,12 +1,12 @@
 {
-  "name": "lab-scribe",
-  "description": "Lab Scribe from Ablation Lab: logs research notes, decisions and experiment ideas into the right research doc as you work.",
+  "name": "bench-diary",
+  "description": "Bench Diary from Ablation Lab: logs research notes, decisions and experiment ideas into the right research doc as you work.",
   "owner": {
     "name": "Ablation Lab"
   },
   "plugins": [
     {
-      "name": "lab-scribe",
+      "name": "bench-diary",
       "source": "./plugin",
       "description": "Logs research notes, decisions and experiment ideas into the right research doc as you work.",
       "version": "1.0.0",
