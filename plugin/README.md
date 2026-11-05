@@ -109,7 +109,7 @@ Bench Diary has no server, account or telemetry and sends nothing anywhere. It s
 
 ## The name
 
-Bench Diary was first called Lab Scribe. It was renamed before submission because LabScribe is the name of iWorx's lab data-acquisition software, which is used in teaching labs, and of several lab-notebook projects on GitHub, so the old name could be mistaken for one of them. A search of GitHub, the plugin directory, community skill directories, npm, PyPI and the web found no plugin, skill, package or product called Bench Diary.
+Bench Diary was first called Lab Scribe. It was renamed before submission because an existing lab software product and several lab-notebook projects on GitHub already use that name, so the old name could be mistaken for one of them. A search of GitHub, the plugin directory, community skill directories, npm, PyPI and the web found no plugin, skill, package or product called Bench Diary.
 
 ## Limits
 
