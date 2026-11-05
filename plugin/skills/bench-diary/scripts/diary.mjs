@@ -153,16 +153,16 @@ function stateDir(project, create) {
 // One run at a time per project: two Claude sessions logging at once must not lose an entry.
 export function withLock(project, fn) {
   const lock = path.join(stateDir(project, true), 'lock');
-  const token = crypto.randomBytes(8).toString('hex');
+  const lockId = crypto.randomBytes(8).toString('hex');
   const until = Date.now() + 12000;
   for (;;) {
-    try { fs.writeFileSync(lock, token, { flag: 'wx' }); break; } catch (e) {
+    try { fs.writeFileSync(lock, lockId, { flag: 'wx' }); break; } catch (e) {
       // EPERM/EACCES: on Windows, a lock that is being deleted can't be created for a moment.
       if (!['EEXIST', 'EPERM', 'EACCES'].includes(e.code)) throw e;
       try {
         if (e.code === 'EEXIST' && Date.now() - fs.statSync(lock).mtimeMs > 10000) {
           // Move a stale lock aside under a unique name first, so two runs can't both remove it.
-          const aside = `${lock}.stale-${token}`;
+          const aside = `${lock}.stale-${lockId}`;
           fs.renameSync(lock, aside); fs.rmSync(aside, { force: true });
           continue;
         }
@@ -172,7 +172,7 @@ export function withLock(project, fn) {
     }
   }
   try { return fn(); } finally {
-    try { if (fs.readFileSync(lock, 'utf8') === token) fs.rmSync(lock, { force: true }); } catch { /* already gone */ }
+    try { if (fs.readFileSync(lock, 'utf8') === lockId) fs.rmSync(lock, { force: true }); } catch { /* already gone */ }
   }
 }
 
@@ -342,16 +342,16 @@ function readJournal(file) {
 // The user's OK for this project: tied to the project's real path and to the exact list of docs, so
 // a marker copied in with the project, or a config that later lists other docs, doesn't count.
 const enabledFile = project => path.join(project, STATE, 'enabled');
-const consentKey = (project, cfg) => crypto.createHash('sha256').update(JSON.stringify([realNative(project), cfg.docs.map(d => d.path).sort()])).digest('hex');
+const consentFingerprint = (project, cfg) => crypto.createHash('sha256').update(JSON.stringify([realNative(project), cfg.docs.map(d => d.path).sort()])).digest('hex');
 const isEnabled = (project, cfg) => {
   try {
     if (!fs.lstatSync(enabledFile(project)).isFile()) return false;
-    return fs.readFileSync(enabledFile(project), 'utf8').split('\n').some(l => l.trim() === consentKey(project, cfg));
+    return fs.readFileSync(enabledFile(project), 'utf8').split('\n').some(l => l.trim() === consentFingerprint(project, cfg));
   } catch { return false; }
 };
-const markEnabled = (project, cfg, now) => fs.writeFileSync(enabledFile(project), `${consentKey(project, cfg)}\n${now.toISOString()}\n`);
+const markEnabled = (project, cfg, now) => fs.writeFileSync(enabledFile(project), `${consentFingerprint(project, cfg)}\n${now.toISOString()}\n`);
 
-// The config as written, for init to change one entry and keep everything else (other keys, other
+// The config as written, for init to change one entry and keep everything else (other fields, other
 // entries, even ones Bench Diary refuses to use).
 function rawConfig(project) {
   const file = path.join(project, CONFIG);
