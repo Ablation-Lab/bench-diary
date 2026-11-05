@@ -1,0 +1,15 @@
+{
+  "docs": [
+    {
+      "path": "notes/results.md",
+      "topics": ["findings", "results", "decisions", "review councils", "judges", "reviewers", "runs"],
+      "description": "What each review-council run found, and the decisions that followed."
+    },
+    {
+      "path": "notes/ideas.md",
+      "topics": ["experiment ideas", "experiments", "things to try"],
+      "description": "Experiments to run next."
+    }
+  ],
+  "defaultDoc": "notes/results.md"
+}
