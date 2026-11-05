@@ -2,7 +2,7 @@
   "name": "lab-scribe",
   "displayName": "Lab Scribe",
   "version": "1.0.0",
-  "description": "Keeps your research docs up to date while you work: once you turn it on for a project, Claude logs research notes, decisions, anecdotes and new experiment ideas into the right doc without asking first, adds a note on how loosely related items do or don't connect, and tells you in one line what it logged, with an undo. Runs in Claude Code with Node.js; writes only to the docs you list, and makes no network requests.",
+  "description": "Keeps your research docs up to date while you work: once you turn it on in a conversation, Claude logs research notes, decisions, anecdotes and new experiment ideas into the right doc without asking first, adds a note on how loosely related items do or don't connect, and tells you in one line what it logged, with an undo. Runs in Claude Code with Node.js; writes only to the docs you list, its lab-scribe.json settings file and a small .lab-scribe folder, and makes no network requests.",
   "author": {
     "name": "Ablation Lab"
   },

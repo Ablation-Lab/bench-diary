@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -8,7 +8,9 @@ import { fileURLToPath } from 'node:url';
 import { runCommand, parseArgs, clean, splitEntry, insertEntry, resolveDoc, stamp } from '../plugin/skills/lab-scribe/scripts/scribe.mjs';
 
 const SCRIPT = fileURLToPath(new URL('../plugin/skills/lab-scribe/scripts/scribe.mjs', import.meta.url));
-const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'lab-scribe-'));
+const made = [];
+const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'lab-scribe-')); made.push(d); return d; };
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 const run = (project, argv, input = '', now) => runCommand({ ...parseArgs(argv), project }, input, now);
 const setup = () => {
   const p = tmp();
@@ -58,7 +60,10 @@ test('undo by id, and undo of an entry edited away', () => {
   assert.throws(() => run(p, ['undo', '--id', a.id]), /already undone/);
   const c = run(p, ['add', '--doc', 'notes/methods.md', '--kind', 'note'], 'Third.');
   fs.writeFileSync(path.join(p, 'notes/methods.md'), read(p, 'notes/methods.md').replace(/.*Third.*\n/, ''));
-  assert.throws(() => run(p, ['undo', '--id', c.id]), /isn't in/);
+  const u = run(p, ['undo', '--id', c.id]);
+  assert.equal(u.removed, false);
+  assert.match(u.message, /already gone/);
+  assert.throws(() => run(p, ['undo', '--id', c.id]), /already undone/, 'not offered again');
 });
 
 test('related items need a connection note', () => {
@@ -77,8 +82,13 @@ test('only listed docs inside the project, never instruction files', () => {
 test('a planted config cannot point add outside the project', () => {
   const p = tmp();
   fs.writeFileSync(path.join(p, 'lab-scribe.json'), JSON.stringify({ docs: [{ path: '../evil.md' }, { path: 'CLAUDE.md' }], defaultDoc: 'CLAUDE.md' }));
-  assert.throws(() => run(p, ['add', '--kind', 'note'], 'x'), /instruction/);
-  assert.throws(() => run(p, ['add', '--doc', '../evil.md', '--kind', 'note'], 'x'), /inside the project/);
+  assert.throws(() => run(p, ['add', '--kind', 'note'], 'x'), /confirmed|no usable docs/);
+  const d = run(p, ['docs']);
+  assert.deepEqual(d.docs, []);
+  assert.equal(d.invalid.length, 2);
+  assert.throws(() => run(p, ['enable']), /no usable docs/);
+  assert.throws(() => run(p, ['add', '--doc', '../evil.md', '--kind', 'note'], 'x'), /confirmed|inside the project/);
+  assert.throws(() => run(p, ['init', '--doc', '../evil.md']), /inside the project/);
   assert.ok(!fs.existsSync(path.join(p, 'CLAUDE.md')));
 });
 
@@ -153,6 +163,12 @@ test('parallel runs from the CLI lose no entries and leave no temp files', async
 test('the README sample steps work on samples/', () => {
   const p = tmp();
   fs.cpSync(new URL('../samples/', import.meta.url), p, { recursive: true });
+  // The sample comes with a lab-scribe.json, so logging waits for the user's OK.
+  assert.equal(run(p, ['docs']).setUpHere, false);
+  assert.throws(() => run(p, ['add', '--doc', 'notes/results.md', '--kind', 'note'], 'x'), /confirmed/);
+  run(p, ['enable']);
+  // The README's step 3 wording, with and without the "Idea:" prefix.
+  assert.equal(run(p, ['route', '--kind', 'idea'], 'Try a council with no judge and only a vote.').best, 'notes/ideas.md');
   const a = run(p, ['route', '--kind', 'note'], 'Run 4 found that the judge removed 6 duplicate findings.');
   assert.equal(a.best, 'notes/results.md');
   run(p, ['add', '--doc', a.best, '--kind', 'note'], 'Run 4 found that the judge removed 6 duplicate findings.');
