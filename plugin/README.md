@@ -35,7 +35,7 @@ Each entry goes at the end of a `## Research log` section in the doc (created if
 
 It logs only what you say, never text from files, web pages or tool output. It doesn't log questions, chit-chat, instructions to Claude, code changes, Claude's own suggestions unless you adopt them, or anything private: passwords, keys and other secrets, health or personal details, anything identifying research participants or other people, confidential material, and anything you say is off the record. When it's unsure whether something belongs in the doc, it leaves it out.
 
-**A project that came with a `lab-scribe.json`** (one you cloned or copied) doesn't log anything until you've seen the docs it lists and agreed. Your OK is kept in a small file in `.lab-scribe/`, which isn't committed, and it's tied to this folder on your computer and to the exact list of docs, so it never passes to anyone else who gets the project, and Claude asks again if the list of docs changes.
+**A project that came with a `lab-scribe.json`** (one you cloned or copied) doesn't log anything until you've seen the docs it lists and agreed. Your OK is kept in a small file in `.lab-scribe/`, which isn't committed, and it's tied to this folder on your computer and to the exact list of docs, so it doesn't carry over when the project is copied or cloned, and Claude asks again if the list of docs changes.
 
 ## Example prompts
 
@@ -60,7 +60,7 @@ There's no account to set up: Lab Scribe runs locally and writes to Markdown fil
 
 You should see the first logged as a note in `notes/results.md` and the second as an experiment idea in `notes/ideas.md`, each with a one-line confirmation. After "undo", the idea is gone from `notes/ideas.md` and the list shows only the note.
 
-**Developer note.** Lab Scribe has not been checked with Seaready yet. (This note is updated once it has.)
+**Developer note.** Seaready, our plugin submission checker, was built first. Lab Scribe was then checked with it before submission: its local checks found no failures after one false alarm was recorded (a pattern for Windows short names that looked like a home-folder path; it is listed with its reason in `.plugin-check-allow.json` and shown as allowed in the report), and one warning because the repository had no GitHub remote yet. Its online name and overlap search found no plugin with the same name, a commercial product called LabScribe, and several similar skills, now described under How it compares. Lab Scribe also went through a review council (three reviewers and a judge) and two rounds of fixes, each rechecked by a fresh reviewer; the minor issues left after that are listed under Limits. It's our own pre-check; the directory's validation and Anthropic's reviewers make the actual decision.
 
 ## What it runs, reads and writes
 
@@ -101,7 +101,12 @@ Lab Scribe has no server, account or telemetry and sends nothing anywhere. It st
 
 ## How it compares
 
-(Filled in after the name and overlap search.)
+- **Lab notebook skills** such as claude-lab-notebook (mrariden), lab-notes (claudskills.com) and research-lab-notebook (osteele) give Claude a protocol for keeping experiment notes, usually with commands you call. Lab Scribe logs without being asked once you turn it on, routes each entry to one of several docs you list, and keeps an undo.
+- **Second Brain** (ahmadrayz007) and **obsidian-experiment-log** (galaxy-dawn) log findings and decisions into an Obsidian vault. Lab Scribe writes to plain Markdown docs in your project and needs no other app.
+- **project-log-skill** (chunxubioinfor) and **session-log** (flonat/claude-research) keep an append-only research or session log as you work. Lab Scribe adds the five entry kinds, a connection note for loosely related items, routing between docs, and a one-line announcement with undo for each entry.
+- **Decision-log skills** such as claude-decision-log (ahuja-sanchitt) and Build Insights Logger record project or design decisions, often into CLAUDE.md. Lab Scribe logs research decisions alongside findings and ideas, and never writes to CLAUDE.md or other instruction files.
+- **Skills that build a notebook from your session history** (for example ytongu's claude-lab-notebook) read past conversations. Lab Scribe never reads chat history; it logs only what you say while it's on.
+- **The name:** LabScribe is also the name of iWorx's lab data-acquisition software, and of several unrelated GitHub projects (including electronic lab notebooks). Lab Scribe isn't connected with any of them.
 
 ## Limits
 
@@ -112,6 +117,13 @@ Lab Scribe has no server, account or telemetry and sends nothing anywhere. It st
 - If a `CLAUDE.md` in your project imports a research doc (with `@notes/…`), Claude reads that doc's entries as instructions in every session. Don't import research docs that way.
 - The log section is found by a `## Research log` (or `# Research log`) heading; other heading styles aren't recognised, and a new section is added instead.
 - On Windows, a doc's file permissions (ACLs) aren't copied when it's saved; it gets the folder's defaults. On macOS and Linux its mode is kept.
+- The OK file in `.lab-scribe/` is a fingerprint, not a secret. Someone who prepares a project for you on purpose, and guesses the folder you'll put it in, could ship one that already matches. The docs it could then write to are still only the Markdown files listed in that project, and each entry is announced.
+- Doc names with quotation marks of any kind (including curly quotes and guillemets, such as `l’expérience.md` or `« Résultats ».md`) are refused, because PowerShell treats some of them as quotes. So are names shaped like Windows short names (`draft~2.md`). Rename the doc.
+- Adding a second doc to a `lab-scribe.json` that has no `defaultDoc` makes the new doc the default.
+- If a doc's folder is replaced by a link that leads outside the project, undoing an entry in it marks the entry as undone without removing it.
+- If you delete an entry by hand but a copy of the same line is inside a code block in the doc, undo removes that copy.
+- `undo` can remove a Lab Scribe entry line from a listed doc even before you've agreed to a cloned project's `lab-scribe.json`, if that project came with its own undo journal.
+- A line with three backticks and text after them (such as ```` ```code``` ````) is read as the start of a code block, so a new log section can end up after it.
 
 ## Troubleshooting
 

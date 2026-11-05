@@ -1,0 +1,3 @@
+[
+  { "id": "DISCLOSE", "file": "plugin/skills/lab-scribe/scripts/scribe.mjs", "reason": "Line 98 is SHORT_NAME, a pattern that recognises Windows 8.3 short names (such as CLAUDE~1) in doc names so they can be refused. The ~ is part of that pattern, not a home-folder path; the helper never reads or writes outside the project." }
+]
