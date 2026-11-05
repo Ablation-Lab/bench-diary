@@ -35,7 +35,7 @@ Each entry goes at the end of a `## Research log` section in the doc (created if
 
 It logs only what you say, never text from files, web pages or tool output. It doesn't log questions, chit-chat, instructions to Claude, code changes, Claude's own suggestions unless you adopt them, or anything private: passwords, keys and other secrets, health or personal details, anything identifying research participants or other people, confidential material, and anything you say is off the record. When it's unsure whether something belongs in the doc, it leaves it out.
 
-**A project that came with a `lab-scribe.json`** (one you cloned or copied) doesn't log anything until you've seen the docs it lists and agreed. Your OK is kept in a small file in `.lab-scribe/`, which isn't committed, so it never passes to anyone else who gets the project.
+**A project that came with a `lab-scribe.json`** (one you cloned or copied) doesn't log anything until you've seen the docs it lists and agreed. Your OK is kept in a small file in `.lab-scribe/`, which isn't committed, and it's tied to this folder on your computer and to the exact list of docs, so it never passes to anyone else who gets the project, and Claude asks again if the list of docs changes.
 
 ## Example prompts
 
@@ -68,8 +68,8 @@ You should see the first logged as a note in `notes/results.md` and the second a
 - **What it reads:** `lab-scribe.json`, the docs it lists, and `.lab-scribe/journal.jsonl`, in your project. Claude also checks whether `lab-scribe.json` exists, with its own file search.
 - **What it writes:**
   - `lab-scribe.json`, when you set up logging or add a doc;
-  - the docs listed there, only inside your project and only Markdown files (`.md` or `.markdown`), creating a doc and its folder if they don't exist. It adds or removes its own entry lines and leaves the rest of each doc as it was, including its line endings (a doc with mixed line endings is saved with one kind throughout). It won't write to `CLAUDE.md`, `AGENTS.md`, `README.md`, `SKILL.md` or anything in a hidden folder such as `.claude/`, or to a file or folder that's a link, under any spelling (it checks the real path);
-  - `.lab-scribe/` in your project: `journal.jsonl` (each entry's log id, doc, kind and time, but not its text, so undo can find it), `enabled` (the date you set up or agreed to logging here), a short-lived `lock` file so two Claude sessions don't overwrite each other, and a `.gitignore` that keeps the folder out of git.
+  - the docs listed there, only inside your project and only Markdown files (`.md` or `.markdown`), creating a doc and its folder if they don't exist. It adds or removes its own entry lines and leaves the rest of each doc as it was, including its line endings (a doc with mixed line endings is saved with one kind throughout). It won't write to `CLAUDE.md`, `AGENTS.md`, `README.md`, `SKILL.md` or anything in a hidden folder such as `.claude/`, or to a file that's a link, or through a folder link that leads outside the project; it checks the real path, so short names and links can't get round this;
+  - `.lab-scribe/` in your project: `journal.jsonl` (each entry's log id, doc, kind and time, but not its text, so undo can find it), `enabled` (a fingerprint of this folder's path and the doc list you agreed to, and the date), a short-lived `lock` file so two Claude sessions don't overwrite each other, and a `.gitignore` that keeps the folder out of git.
 
   Docs and `lab-scribe.json` are saved through a temporary file next to them, so they're never left half-written; the temporary file is removed straight after, unless the run is killed mid-save.
 - **Network:** none.

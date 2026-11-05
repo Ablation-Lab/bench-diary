@@ -1,6 +1,6 @@
 # Lab Scribe
 
-Lab Scribe is a Claude Code plugin that keeps your research docs up to date while you work: once you turn it on for a project, Claude logs research notes, decisions, anecdotes and experiment ideas into the right doc without asking first, adds a connection note to loosely related items, and tells you in one line what it logged, with an undo. The plugin lives in [plugin/](plugin/); its README, [plugin/README.md](plugin/README.md), describes what it does, what it reads and writes, and how to try it.
+Lab Scribe is a Claude Code plugin that keeps your research docs up to date while you work: once you set it up for a project and turn it on in a conversation, Claude logs research notes, decisions, anecdotes and experiment ideas into the right doc without asking first, adds a connection note to loosely related items, and tells you in one line what it logged, with an undo. The plugin lives in [plugin/](plugin/); its README, [plugin/README.md](plugin/README.md), describes what it does, what it reads and writes, and how to try it.
 
 ## Install
 

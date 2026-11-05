@@ -90,8 +90,12 @@ export function splitEntry(input) {
 
 // Files that instruct Claude or other tools are never research docs.
 const INSTRUCTION_FILES = ['claude.md', 'claude.local.md', 'agents.md', 'gemini.md', 'skill.md', 'readme.md'];
-// Characters that mean something to a shell, so a doc name can always be quoted safely.
-const SHELL_CHARS = /[$`'"\\;&|<>*?%!{}\0]/;
+// Characters that mean something to a shell, so a doc name can always be quoted safely. PowerShell
+// also treats curly quotes (U+2018 to U+201B) as single quotes and U+201C to U+201E as double ones,
+// so every quotation mark (\p{Pi}, \p{Pf} and the low ones U+201A, U+201E) is refused too.
+const SHELL_CHARS = new RegExp(`[$\`'"\\\\;&|<>*?%!{}\\0\\p{Pi}\\p{Pf}${cp(0x201a)}${cp(0x201e)}]`, 'u');
+// A Windows 8.3 short name: up to six characters, ~ and a number, and up to three after a dot.
+const SHORT_NAME = /^[^.\s]{1,6}~\d{1,6}(\.[^.\s]{0,3})?$/i;
 
 function refuseGuarded(parts, rel) {
   if (parts.some(p => p.startsWith('.') && p !== '.') || INSTRUCTION_FILES.includes(parts[parts.length - 1]))
@@ -105,17 +109,19 @@ export function resolveDoc(project, rel) {
   const r = String(rel ?? '').replace(/\\/g, '/').trim();
   if (!r) throw new Error('give the doc with --doc');
   if (/^(\/|[A-Za-z]:)/.test(r) || r.includes(':') || r.split('/').includes('..')) throw new Error(`doc paths must stay inside the project: ${clean(rel, 120)}`);
-  if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(r) || new RegExp(HIDDEN.source, 'u').test(r)) throw new Error('doc names can\'t contain control or invisible characters');
+  // Joiners (U+200C, U+200D) are allowed: Persian and Indic names and emoji need them.
+  if (/[\p{Cc}\p{Zl}\p{Zp}]/u.test(r) || [...r].some(c => /\p{Cf}/u.test(c) && c !== cp(0x200c) && c !== cp(0x200d)) || new RegExp(HIDDEN.source, 'u').test(r)) throw new Error('doc names can\'t contain control or invisible characters');
   if (SHELL_CHARS.test(r)) throw new Error(`doc names can't contain $ \` ' " ; & | < > * ? % ! { } or backslashes: ${clean(rel, 120)}`);
   // Windows short names (CLAUDE~1) could reach a guarded file under another spelling.
-  if (r.split('/').some(p => /~\d/.test(p))) throw new Error(`use the doc's full name, not a short name like NOTES~1: ${clean(rel, 120)}`);
+  if (r.split('/').some(p => SHORT_NAME.test(p))) throw new Error(`use the doc's full name, not a short name like NOTES~1: ${clean(rel, 120)}`);
   if (!/\.(md|markdown)$/i.test(r)) throw new Error(`docs must be Markdown files (.md): ${clean(rel, 120)}`);
   refuseGuarded(r.toLowerCase().split('/'), rel);
   const abs = path.resolve(project, r);
   if (!inside(path.resolve(project), abs) || abs === path.resolve(project)) throw new Error(`doc paths must stay inside the project: ${clean(rel, 120)}`);
   // Check the real path too: a linked folder could lead outside the project or into a guarded folder.
+  if (!fs.existsSync(project)) throw new Error(`the project folder doesn't exist: ${clean(project, 120)}`);
   let dir = path.dirname(abs);
-  while (!fs.existsSync(dir)) dir = path.dirname(dir);
+  while (!fs.existsSync(dir) && path.dirname(dir) !== dir) dir = path.dirname(dir);
   const realProject = realNative(project);
   const realDir = realNative(dir);
   if (!inside(realProject, realDir)) throw new Error(`doc paths must stay inside the project (a linked folder leads outside it): ${clean(rel, 120)}`);
@@ -264,6 +270,7 @@ function fencedLines(lines) {
     if (mark) { inFence[i] = true; if (m && m[1][0] === mark[0] && m[1].length >= mark.length && /^\s{0,3}[`~]+\s*$/.test(l)) mark = null; }
     else if (m) { inFence[i] = true; mark = m[1]; }
   });
+  inFence.openMark = mark; // the fence still open at the end of the doc, if any
   return inFence;
 }
 
@@ -277,7 +284,7 @@ export function insertEntry(docText, entryLines) {
   if (start < 0) {
     while (lines.length && lines[lines.length - 1] === '') lines.pop();
     // If the doc ends inside an unclosed code fence, close it so the new section isn't swallowed.
-    if (fenced.length && fenced[fenced.length - 1] && lines.length) lines.push(lines.find((l, i) => fenced[i] && /^\s{0,3}(`{3,}|~{3,})/.test(l)).trim().match(/^(`{3,}|~{3,})/)[1]);
+    if (fenced.openMark) lines.push(fenced.openMark);
     if (lines.length) lines.push('');
     lines.push(LOG_HEADING, '', ...entryLines, '');
     return lines.join(eol);
@@ -302,7 +309,10 @@ export function removeEntry(docText, id) {
   const eol = eolOf(docText);
   const lines = docText.replace(/\r\n/g, '\n').split('\n');
   const fenced = fencedLines(lines);
-  const k = lines.findIndex((l, i) => !fenced[i] && isEntryLine(l, id));
+  // Entry lines are distinctive, so if none is found outside code (an unclosed fence above it, say),
+  // take the one inside.
+  let k = lines.findIndex((l, i) => !fenced[i] && isEntryLine(l, id));
+  if (k < 0) k = lines.findIndex(l => isEntryLine(l, id));
   if (k < 0) return null;
   const count = lines[k + 1] != null && /^ {2}- Connection: /.test(lines[k + 1]) ? 2 : 1;
   lines.splice(k, count);
@@ -329,8 +339,30 @@ function readJournal(file) {
     .filter(r => r && typeof r === 'object' && ((/^[0-9a-f]{6}$/.test(r.id) && typeof r.doc === 'string' && KINDS.includes(r.kind)) || /^[0-9a-f]{6}$/.test(r.undo)));
 }
 
+// The user's OK for this project: tied to the project's real path and to the exact list of docs, so
+// a marker copied in with the project, or a config that later lists other docs, doesn't count.
 const enabledFile = project => path.join(project, STATE, 'enabled');
-const isEnabled = project => { try { return fs.lstatSync(enabledFile(project)).isFile(); } catch { return false; } };
+const consentKey = (project, cfg) => crypto.createHash('sha256').update(JSON.stringify([realNative(project), cfg.docs.map(d => d.path).sort()])).digest('hex');
+const isEnabled = (project, cfg) => {
+  try {
+    if (!fs.lstatSync(enabledFile(project)).isFile()) return false;
+    return fs.readFileSync(enabledFile(project), 'utf8').split('\n').some(l => l.trim() === consentKey(project, cfg));
+  } catch { return false; }
+};
+const markEnabled = (project, cfg, now) => fs.writeFileSync(enabledFile(project), `${consentKey(project, cfg)}\n${now.toISOString()}\n`);
+
+// The config as written, for init to change one entry and keep everything else (other keys, other
+// entries, even ones Lab Scribe refuses to use).
+function rawConfig(project) {
+  const file = path.join(project, CONFIG);
+  try {
+    const st = fs.lstatSync(file);
+    if (st.isSymbolicLink() || !st.isFile()) throw new Error(`${CONFIG} is a link or not a file; Lab Scribe won't use it`);
+    const v = JSON.parse(decode(fs.readFileSync(file), CONFIG).replace(new RegExp('^' + BOM), ''));
+    if (!v || typeof v !== 'object' || Array.isArray(v) || !Array.isArray(v.docs)) throw new Error(`${CONFIG} needs a "docs" list`);
+    return v;
+  } catch (e) { if (e.code === 'ENOENT') return null; if (e instanceof SyntaxError) throw new Error(`${CONFIG} is not valid JSON (${clean(e.message, 80)})`); throw e; }
+}
 
 export function runCommand(o, input, now = new Date()) {
   const project = path.resolve(o.project || process.cwd());
@@ -343,15 +375,23 @@ export function runCommand(o, input, now = new Date()) {
       const topics = o.topics ? o.topics.split(',').map(s => clean(s, 60)).filter(Boolean) : [];
       return withLock(project, () => {
         // Read the config inside the lock, so two inits at once both keep their doc.
-        const cfg = loadConfig(project) || { docs: [], invalid: [], defaultDoc: null };
-        const existing = cfg.docs.find(d => d.path === rel);
-        if (existing) { if (topics.length) existing.topics = topics; if (o.description) existing.description = clean(o.description, 200); }
-        else cfg.docs.push({ path: rel, topics, description: o.description ? clean(o.description, 200) : '' });
+        const before = loadConfig(project);
+        // A config that came with the project must be confirmed first, or init would quietly
+        // approve every doc it lists.
+        if (before && before.docs.length && !isEnabled(project, before)) throw new Error(`this project came with a ${CONFIG} listing ${before.docs.map(d => d.path).join(', ')}; ask the user about those docs and run enable before adding one`);
+        const raw = rawConfig(project) || { docs: [] };
+        const k = raw.docs.findIndex(d => { try { return resolveDoc(project, d && typeof d === 'object' ? d.path : d).rel === rel; } catch { return false; } });
+        const entry = k >= 0 && raw.docs[k] && typeof raw.docs[k] === 'object' ? raw.docs[k] : { path: rel, topics: [], description: '' };
+        if (topics.length) entry.topics = topics;
+        if (o.description) entry.description = clean(o.description, 200);
+        if (k >= 0) raw.docs[k] = entry; else raw.docs.push(entry);
+        if (typeof raw.defaultDoc !== 'string') raw.defaultDoc = rel;
         const docText = readDoc(abs, rel);
-        writeAtomic(cfgFile, JSON.stringify({ docs: cfg.docs, defaultDoc: cfg.defaultDoc || rel }, null, 2) + '\n');
+        writeAtomic(cfgFile, JSON.stringify(raw, null, 2) + '\n');
         if (docText == null) writeAtomic(abs, `# ${path.basename(rel).replace(/\.(md|markdown)$/i, '')}\n\n${LOG_HEADING}\n`);
-        fs.writeFileSync(enabledFile(project), `${now.toISOString()}\n`);
-        return { config: CONFIG, docs: cfg.docs.map(d => d.path), created: docText == null ? rel : null, message: `Research logging is set up for ${rel}.` };
+        const after = loadConfig(project);
+        markEnabled(project, after, now);
+        return { config: CONFIG, docs: after.docs.map(d => d.path), created: docText == null ? rel : null, message: `Research logging is set up for ${rel}.` };
       });
     }
     case 'enable': {
@@ -359,14 +399,14 @@ export function runCommand(o, input, now = new Date()) {
       if (!cfg) throw new Error(off);
       if (!cfg.docs.length) throw new Error(`${CONFIG} lists no usable docs`);
       return withLock(project, () => {
-        fs.writeFileSync(enabledFile(project), `${now.toISOString()}\n`);
+        markEnabled(project, cfg, now);
         return { enabled: true, docs: cfg.docs.map(d => d.path), message: `Research logging is on here for ${cfg.docs.map(d => d.path).join(', ')}.` };
       });
     }
     case 'docs': {
       const cfg = loadConfig(project);
       if (!cfg) return { active: false, message: off };
-      return { active: true, setUpHere: isEnabled(project), docs: cfg.docs, defaultDoc: cfg.defaultDoc, invalid: cfg.invalid };
+      return { active: true, setUpHere: isEnabled(project, cfg), docs: cfg.docs, defaultDoc: cfg.defaultDoc, invalid: cfg.invalid };
     }
     case 'route': {
       const cfg = loadConfig(project);
@@ -383,7 +423,7 @@ export function runCommand(o, input, now = new Date()) {
         const cfg = loadConfig(project);
         if (!cfg) throw new Error(`research logging is off here: no ${CONFIG} (run init first)`);
         // A lab-scribe.json that came with the project (a clone, a copy) needs this user's OK first.
-        if (!isEnabled(project)) throw new Error(`logging isn't confirmed for you in this project yet: ${CONFIG} lists ${cfg.docs.map(d => d.path).join(', ') || 'no usable docs'}; ask the user, then run enable`);
+        if (!isEnabled(project, cfg)) throw new Error(`logging isn't confirmed for you in this project yet: ${CONFIG} lists ${cfg.docs.map(d => d.path).join(', ') || 'no usable docs'}; ask the user, then run enable`);
         const { rel, abs } = resolveDoc(project, o.doc || cfg.defaultDoc || '');
         if (!cfg.docs.some(d => d.path === rel)) throw new Error(`${rel} isn't one of this project's research docs in ${CONFIG}; add it with init first`);
         const before = readDoc(abs, rel) ?? `# ${path.basename(rel).replace(/\.(md|markdown)$/i, '')}\n`;
@@ -405,8 +445,10 @@ export function runCommand(o, input, now = new Date()) {
         const target = o.id ? rows.find(r => r.id === o.id) : [...rows].reverse().find(r => r.id && !undone.has(r.id));
         if (!target) throw new Error(o.id ? `no log entry with id ${o.id}` : 'nothing to undo');
         if (undone.has(target.id)) throw new Error(`entry ${target.id} was already undone`);
-        const { rel, abs } = resolveDoc(project, target.doc);
-        const text = readDoc(abs, rel);
+        // A row whose doc the current rules refuse (an old journal) is marked undone, not retried forever.
+        let rel = clean(target.doc, 120), abs = null;
+        try { ({ rel, abs } = resolveDoc(project, target.doc)); } catch { /* left as null */ }
+        const text = abs ? readDoc(abs, rel) : null;
         const after = text == null ? null : removeEntry(text, target.id);
         // Older journals kept a copy of each entry's text; drop those copies whenever undo runs.
         const rewrite = rows.map(r => (r.undo ? { undo: r.undo, time: r.time } : { id: r.id, doc: r.doc, kind: r.kind, time: r.time }));

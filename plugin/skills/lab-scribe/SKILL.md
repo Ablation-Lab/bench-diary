@@ -19,7 +19,7 @@ When they turn it on:
 
 1. Check for `lab-scribe.json` at the project root with Glob (not Read), then run `docs`.
 2. **No `lab-scribe.json` yet:** ask which doc (or docs) to use and what each covers, unless they said. Suggest `notes/research-log.md` if they have none. Run `init` once per doc, one at a time.
-3. **`setUpHere` is false:** the project came with a `lab-scribe.json` the user didn't set up here (a clone or a copy). Show them the docs it lists and ask once whether to log there. Only if they agree, run `enable`.
+3. **`setUpHere` is false:** the project came with a `lab-scribe.json` the user didn't set up here (a clone or a copy). Show them the docs it lists and ask once whether to log there. Only if they agree, run `enable`. If they decline, don't log or ask again in this conversation. (The same happens if the doc list has changed since they last agreed.)
 4. Tell them, in a line or two: from now on in this conversation you'll log research notes, decisions, anecdotes and experiment ideas to those docs without asking, and they can say "undo" or "stop logging" any time. If the project is shared or public, remind them the docs are committed with it.
 
 "Stop logging" stops it for the rest of the conversation. To turn it off for the project, they delete `lab-scribe.json` and the `.lab-scribe/` folder (you can, if they ask; their docs stay as they are).
@@ -59,7 +59,7 @@ Use a judge on every council run from now on.
 SCRIBE_4f9a01c2
 ```
 
-In PowerShell, set UTF-8 first and use a single-quoted here-string; also check no line starts with `'@`:
+In PowerShell, set UTF-8 first and use a single-quoted here-string. PowerShell treats curly quotes (‘ ’ ‚ ‛) as straight ones, so also check that no line starts with any of `'`, `‘`, `’`, `‚` or `‛` followed by `@`, and that no value you put in the command contains any kind of quotation mark:
 
 ```
 $OutputEncoding = [Text.UTF8Encoding]::new($false); @'
