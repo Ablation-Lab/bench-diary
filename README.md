@@ -1,6 +1,6 @@
 # Bench Diary
 
-Bench Diary is a Claude Code plugin that keeps your research docs up to date while you work: once you set it up for a project and turn it on in a conversation, Claude logs research notes, decisions, anecdotes and experiment ideas into the right doc without asking first, adds a connection note to loosely related items, and tells you in one line what it logged, with an undo. The plugin lives in [plugin/](plugin/); its README, [plugin/README.md](plugin/README.md), describes what it does, what it reads and writes, and how to try it.
+Bench Diary is a Claude Code plugin that keeps your research notes up to date as you work. Turn it on in a conversation, and Claude logs the notes, decisions, anecdotes and experiment ideas you mention into the right Markdown doc in your project, from the docs you choose, without asking first. Each time, it tells you in one line what it logged, with an undo, and it leaves out secrets and personal details. The plugin lives in [plugin/](plugin/); its README, [plugin/README.md](plugin/README.md), describes what it does, what it reads and writes, and how to try it.
 
 ## Install
 

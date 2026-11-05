@@ -1,6 +1,6 @@
 # Bench Diary
 
-Bench Diary keeps your research docs up to date while you work. Set it up once for a project by naming the docs it may write to, then turn it on in a conversation. From then on, when you mention a finding, a decision, an anecdote or a new experiment idea, Claude writes it into the right doc straight away, without asking first, and tells you in one line what it logged, with an undo. Things that are only loosely related get logged too, with a note on how they do or don't connect.
+Bench Diary keeps your research notes up to date as you work in Claude Code. Turn it on in a conversation, and Claude logs the notes, decisions, anecdotes and experiment ideas you mention into the right Markdown doc in your project, from the docs you choose, without asking first. Each time, it tells you in one line what it logged, with an undo, and it leaves out secrets and personal details.
 
 It was made for research projects where the useful remarks happen mid-conversation and never make it into the notes. It adds one skill, `bench-diary` (in Claude Code: `/bench-diary:bench-diary`). It's an independent project, not made or endorsed by Anthropic.
 
